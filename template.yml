@@ -34,7 +34,7 @@ Resources:
         Bucket: !Ref s3BucketName
         Key: !Sub "Possix/getPossix.zip"
       FunctionName: getPossixTime
-      Description: "To get possix unix time on server ${Version}"
+      Description: !Sub "To get possix unix time on server ${Version}"
       Handler: getPossix.lambda_handler
       Runtime: python3.9
       MemorySize: 128
