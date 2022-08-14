@@ -18,3 +18,9 @@ jobs:
     - name: Copy files to the test website with the AWS CLI
       run: |
         aws s3 cp /home/runner/work/python-backend/python-backend/Python/getPossix.zip s3://deploy-lambda-scripts/Possix/
+    - name: Deploy to AWS CloudFormation
+      uses: aws-actions/aws-cloudformation-github-deploy@v1
+      with:
+        name: Api-Possix-Backend
+        template: template.yml
+        parameter-overrides: "Env=dev01,ApiName=Possix-Time,Stage=dev01,s3BucketName=deploy-lambda-scripts"
