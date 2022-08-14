@@ -17,7 +17,8 @@ jobs:
         aws-region: eu-west-2
     - name: Copy files to the test website with the AWS CLI
       run: |
-        aws s3 cp /home/runner/work/python-backend/python-backend/Python/getPossix.zip s3://deploy-lambda-scripts/Possix/
+        zip -r ./Python/getPossix.zip getPossix.py
+        aws s3 cp ./Python/getPossix.zip s3://deploy-lambda-scripts/Possix/
     - name: Deploy to AWS CloudFormation
       uses: aws-actions/aws-cloudformation-github-deploy@v1
       with:
