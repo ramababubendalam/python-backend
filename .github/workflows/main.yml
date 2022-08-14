@@ -17,4 +17,4 @@ jobs:
         aws-region: eu-west-2
     - name: Copy files to the test website with the AWS CLI
       run: |
-        aws s3 cp getPossix.zip s3://deploy-lambda-scripts/Possix/
+        aws s3 cp /home/runner/work/python-backend/python-backend/Python/getPossix.zip s3://deploy-lambda-scripts/Possix/
