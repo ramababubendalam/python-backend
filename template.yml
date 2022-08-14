@@ -1,0 +1,178 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Template to deploy Apigateway and lambda Services
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev01
+
+  ApiName:
+    Type: String
+    Default: PossixTime
+
+  Stage:
+    Type: String
+    Default: dev01
+
+  s3BucketName:
+    Type: String
+    Default: deploy-lambda-scripts
+
+
+
+Resources:
+
+  GetPossixLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri:
+        Bucket: !Ref s3BucketName
+        Key: !Sub "Possix/getPossix.zip"
+      FunctionName: getPossixTime
+      Description: To get possix unix time on server
+      Handler: getPossix.lambda_handler
+      Runtime: python3.9
+      MemorySize: 128
+      Timeout: 30
+      Role: !Sub 'arn:aws:iam::${AWS::AccountId}:role/RoletoAccessLambda'
+      AutoPublishAlias: !Ref Env
+      DeploymentPreference:
+        Type: AllAtOnce
+      Events:
+        GetApi:
+          Type: Api
+          Properties:
+            Path: /v1
+            Method: get
+            RestApiId: !Ref ApiGatewayApi
+
+
+
+  ApiGatewayApi:
+    DependsOn: ApiGwAccountConfig
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Name: !Ref ApiName
+      OpenApiVersion: '2.0'
+      EndpointConfiguration:
+        Type: REGIONAL
+      DefinitionBody:
+        swagger: "2.0"
+        info:
+          description: "Get posix Api"
+        schemes:
+          - "https"
+        paths:
+          /v1:
+            get:
+              produces:
+                - "application/json"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+              x-amazon-apigateway-integration:
+                credentials: !GetAtt ApiGatewayIamRole.Arn
+                httpMethod: "POST"
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${GetPossixLambdaFunction}:${Stage}/invocations"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws"
+            options:
+              consumes:
+                - "application/json"
+              produces:
+                - "application/json"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                    Access-Control-Allow-Methods:
+                      type: "string"
+                    Access-Control-Allow-Headers:
+                      type: "string"
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+                type: "mock"
+        definitions:
+          Empty:
+            type: "object"
+            title: "Empty Schema"
+
+
+  ApiGatewayIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: 'Allow'
+            Principal:
+              Service:
+                - 'apigateway.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'lambda:*'
+                Resource: "*"
+              - Effect: 'Allow'
+                Action: 'logs:*'
+                Resource: "*"
+              - Effect: 'Allow'
+                Action: 's3:GetObject'
+                Resource: "*"
+
+  ApiGwAccountConfig:
+    Type: "AWS::ApiGateway::Account"
+    Properties:
+      CloudWatchRoleArn: !GetAtt "ApiGatewayLoggingRole.Arn"
+  ApiGatewayLoggingRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "apigateway.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+
+#Outputs:
+#　  ApiUrl:
+#　　   Description: "API Gateway endpoint URL for stag stage"
+#　　   Value: !Ref ApiGatewayApi
